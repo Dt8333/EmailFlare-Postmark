@@ -25,30 +25,22 @@ export const sendEmail = httpCall(
         }
 
         const from = parseEmail(message.from);
-        const dkimKey = useContextProperty("DKIM_PRIVATE_KEY");
+        const token = useContextProperty("POSTMARK-SERVER-TOKEN");
 
-        const response = await fetch("https://api.mailchannels.net/tx/v1/send", {
+        const response = await fetch("https://api.postmarkapp.com/email", {
             method: "POST",
             headers: {
                 "content-type": "application/json",
+                "X-Postmark-Server-Token": token,
+                "Accept": "application/json",
             },
             body: JSON.stringify({
-                subject: message.subject.trim(),
-                personalizations: [
-                    {
-                        to: parseMultiEmail(message.to),
-                        ...dkimKey ? {
-                            dkim_domain: useContextProperty("SENDER_DOMAIN"),
-                            dkim_selector: "mailchannels",
-                            dkim_private_key: dkimKey,
-                        } : undefined,
-                    }
-                ],
-                from,
-                content: [
-                    message.bodyText && { type: "text/plain", value: message.bodyText },
-                    message.bodyHtml && { type: "text/html", value: message.bodyHtml },
-                ].filter(x => !!x)
+                From:from.name ? `${from.name} <${from.email}>` : from.email,
+                To:parseMultiEmail(message.to).map(x=>x.email).join(","),
+                Subject: message.subject.trim(),
+                TextBody: message.bodyText,
+                HtmlBody: message.bodyHtml,
+                MessageStream:'outbound',
             })
         }).catch(() => undefined);
 
